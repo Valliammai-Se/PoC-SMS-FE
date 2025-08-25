@@ -189,7 +189,6 @@ const CustomerList: React.FC = () => {
                   padding: 10,
                   borderRadius: 8,
                   maxWidth: "80%",
-                  width: "fit-content"
                 }}
               >
                 <div style={{ fontWeight: "bold" }}>{item?.Admin?.length > 0 ? item?.Admin : item?.Customer}</div>
