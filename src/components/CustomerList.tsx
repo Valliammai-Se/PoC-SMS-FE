@@ -192,7 +192,16 @@ const CustomerList: React.FC = () => {
                 }}
               >
                 <div style={{ fontWeight: "bold" }}>{item?.Admin?.length > 0 ? item?.Admin : item?.Customer}</div>
-                <small style={{ color: "#999" }}>{item?.Date}</small>
+                <small style={{ color: "#999" }}> {item?.Date
+                ? new Intl.DateTimeFormat(undefined, {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true
+                  }).format(new Date(item.Date))
+                : ""}</small>
               </List.Item>
             )}
           />
