@@ -96,7 +96,6 @@ const CustomerList: React.FC = () => {
       if (!response.ok) {
         throw new Error("Failed to send SMS");
       }
-      console.log(response)
       return response.json();
   };
 
