@@ -1,7 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { Table, Button, Modal, List, Typography, Select } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { Customer } from "../types";
+export interface Customer {
+  id: number;
+  name: string;
+  mobile_number: string;
+  email: string;
+  created_at:string;
+  chatHistory: string[];
+}
 
 const { Title } = Typography;
 
@@ -84,20 +91,20 @@ const CustomerList: React.FC = () => {
     getCustomers();
   };
 
-  const sendSms = async(id: number) => {
-    const response = await fetch("https://poc-sms-production.up.railway.app/sms", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({id}),
-      });
+  // const sendSms = async(id: number) => {
+  //   const response = await fetch("https://poc-sms-production.up.railway.app/sms", {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify({id}),
+  //     });
     
-      if (!response.ok) {
-        throw new Error("Failed to send SMS");
-      }
-      return response.json();
-  };
+  //     if (!response.ok) {
+  //       throw new Error("Failed to send SMS");
+  //     }
+  //     return response.json();
+  // };
 
   const columns: ColumnsType<Customer> = [
     {
@@ -171,7 +178,7 @@ const CustomerList: React.FC = () => {
         {selectedCustomer && (
           <List
             dataSource={history}
-            renderItem={(item, index) => (
+            renderItem={(item) => (
               <List.Item
                 style={{
                   display: "flex",
