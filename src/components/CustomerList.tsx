@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Button, Modal, List, Typography, Select } from "antd";
+import { Table, Button, Modal, List, Typography, Select, Input } from "antd";
 import type { ColumnsType } from "antd/es/table";
 export interface Customer {
   id: number;
@@ -19,6 +19,8 @@ const CustomerList: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [history, setHistory] = useState<any[]>([]);
+  const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
+   const [smsMessage, setSmsMessage] = useState("");
 
   const showHistory = async(customer: Customer) => {
     const response = await fetch("https://poc-sms-production.up.railway.app/history", {
@@ -42,6 +44,27 @@ const CustomerList: React.FC = () => {
     setIsModalOpen(false);
     setSelectedCustomer(null);
   };
+
+  const handleSendClick = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setSmsMessage("");
+    setIsSmsModalOpen(true);
+  };
+
+  const handleSmsModalCancel = () => {
+    setIsSmsModalOpen(false);
+    setSelectedCustomer(null);
+  };
+
+  const handleSmsSend = async () => {
+    if (selectedCustomer && smsMessage.trim()) {
+      await sendSms(selectedCustomer.id, smsMessage);
+      setIsSmsModalOpen(false);
+      setSelectedCustomer(null);
+      setSmsMessage("");
+    }
+  };
+
 
   const getCustomers = async () => {
     const response = await fetch("https://poc-sms-production.up.railway.app/customers", {
@@ -91,20 +114,20 @@ const CustomerList: React.FC = () => {
     getCustomers();
   };
 
-  // const sendSms = async(id: number) => {
-  //   const response = await fetch("https://poc-sms-production.up.railway.app/sms", {
-  //       method: "POST",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //       },
-  //       body: JSON.stringify({id}),
-  //     });
+  const sendSms = async(id: number, msg : string) => {
+    const response = await fetch("https://poc-sms-production.up.railway.app/send-sms", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({id,msg}),
+      });
     
-  //     if (!response.ok) {
-  //       throw new Error("Failed to send SMS");
-  //     }
-  //     return response.json();
-  // };
+      if (!response.ok) {
+        throw new Error("Failed to send SMS");
+      }
+      return response.json();
+  };
 
   const columns: ColumnsType<Customer> = [
     {
@@ -145,9 +168,9 @@ const CustomerList: React.FC = () => {
       key: "actions",
       render: (_, record) => (
         <>
-          {/* <Button type="primary" style={{ marginRight: 8 }} onClick={() => sendSms(record?.id)}>
+          <Button type="primary" style={{ marginRight: 8 }} onClick={() => handleSendClick(record)}>
             Send
-          </Button> */}
+          </Button>
           <Button onClick={() => showHistory(record)}>History</Button>
         </>
       )
@@ -206,6 +229,20 @@ const CustomerList: React.FC = () => {
             )}
           />
         )}
+      </Modal>
+      <Modal
+        title={`Send SMS to ${selectedCustomer?.name}`}
+        open={isSmsModalOpen}
+        onCancel={handleSmsModalCancel}
+        onOk={handleSmsSend}
+        okText="Send"
+      >
+        <Input.TextArea
+          rows={4}
+          placeholder="Type your message..."
+          value={smsMessage}
+          onChange={(e) => setSmsMessage(e.target.value)}
+        />
       </Modal>
     </div>
   );
