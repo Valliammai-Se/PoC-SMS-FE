@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Table, Button, Modal, List, Typography, Select, Input } from "antd";
+import { Table, Button, Modal, List, Typography, Select, Input, Switch, message, Tabs } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { MessageOutlined, WhatsAppOutlined } from "@ant-design/icons";
 export interface Customer {
   id: number;
   name: string;
@@ -8,6 +9,8 @@ export interface Customer {
   email: string;
   created_at:string;
   chatHistory: string[];
+  is_sms: boolean;
+  is_whatsapp: boolean;
 }
 
 const { Title } = Typography;
@@ -19,8 +22,10 @@ const CustomerList: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [history, setHistory] = useState<any[]>([]);
+  const [wphistory, setWpHistory] = useState<any[]>([]);
   const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
    const [smsMessage, setSmsMessage] = useState("");
+   const [loadingSwitch, setLoadingSwitch] = useState<{ id: number; type: "sms" | "whatsapp" } | null>(null);
 
   const showHistory = async(customer: Customer) => {
     const response = await fetch("https://poc-sms-production.up.railway.app/history", {
@@ -35,7 +40,8 @@ const CustomerList: React.FC = () => {
       throw new Error("Failed to send SMS");
     }
     const custhistory = await response.json();
-    setHistory(custhistory);
+    setHistory(custhistory.response);
+    setWpHistory(custhistory.wpresponse);
     setSelectedCustomer(customer);
     setIsModalOpen(true);
   };
@@ -113,6 +119,35 @@ const CustomerList: React.FC = () => {
 
     getCustomers();
   };
+  const handleNotificationChange = async(key: number, is_sms?: boolean , is_whatsapp? : boolean) => {
+    let payload : any = { id: key };
+    if (is_sms !== undefined) payload = { ...payload, is_sms };
+    if (is_whatsapp !== undefined) payload = { ...payload, is_whatsapp };
+    const response = await fetch("https://poc-sms-production.up.railway.app/notification", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+     
+      body: JSON.stringify(payload),
+    });
+  
+    if (!response.ok) {
+      throw new Error("Failed to send SMS");
+    }
+    getCustomers();
+  };
+  const handleSmsToggle = async(key: number, checked: boolean) => {
+    setLoadingSwitch({ id: key, type: "sms" });
+    await handleNotificationChange(key, checked, undefined);
+    setLoadingSwitch(null);
+  };
+
+  const handleWhatsappToggle = async(key: number, checked: boolean) => {
+    setLoadingSwitch({ id: key, type: "whatsapp" });
+    await handleNotificationChange(key, undefined, checked);
+    setLoadingSwitch(null);
+  };
 
   const sendSms = async(id: number, msg : string) => {
     const response = await fetch("https://poc-sms-production.up.railway.app/send-sms", {
@@ -174,7 +209,48 @@ const CustomerList: React.FC = () => {
           <Button onClick={() => showHistory(record)}>History</Button>
         </>
       )
-    }
+    },
+    {
+    title: "SMS",
+    key: "sms",
+    render: (_, record) => (
+      <Switch
+        checked={record.is_sms}
+        loading={loadingSwitch?.id === record.id && loadingSwitch.type === "sms"}
+        onChange={(checked) => {
+          console.log(record);
+          if (!checked && !record.is_whatsapp) {
+            console.log(record);
+            message.warning("At least one channel (SMS or WhatsApp) must remain enabled");
+            return;
+          }
+          handleSmsToggle(record.id, checked);
+        }}
+        checkedChildren={<MessageOutlined />}
+        unCheckedChildren={<MessageOutlined />}
+      />
+    ),
+  },
+  {
+    title: "WhatsApp",
+    key: "whatsapp",
+    render: (_, record) => (
+      <Switch
+        checked={record.is_whatsapp}
+        loading={loadingSwitch?.id === record.id && loadingSwitch.type === "whatsapp"}
+        onChange={(checked) => {
+          if (!checked && !record.is_sms) {
+            console.log(record);
+            message.warning("At least one channel (SMS or WhatsApp) must remain enabled");
+            return;
+          }
+          handleWhatsappToggle(record.id, checked);
+        }}
+        checkedChildren={<WhatsAppOutlined />}
+        unCheckedChildren={<WhatsAppOutlined />}
+      />
+    ),
+  },
   ];
 
   return (
@@ -188,48 +264,101 @@ const CustomerList: React.FC = () => {
         bordered
       />
 
-      <Modal
-        title={`Chat History - ${selectedCustomer?.name}`}
-        open={isModalOpen}
-        onCancel={handleCancel}
-        footer={[
-          <Button key="close" danger onClick={handleCancel}>
-            Close
-          </Button>
+     <Modal
+      title={`Chat History - ${selectedCustomer?.name}`}
+      open={isModalOpen}
+      onCancel={handleCancel}
+      footer={[
+        <Button key="close" danger onClick={handleCancel}>
+          Close
+        </Button>,
+      ]}
+      width={800}
+    >
+      <Tabs
+        defaultActiveKey="chat"
+        items={[
+          {
+            key: "chat",
+            label: "Chat History",
+            children: (
+              <List style={{paddingLeft:"10%", paddingRight:"10%"}}
+                dataSource={history}
+                renderItem={(item) => (
+                  <List.Item
+                    style={{
+                      display: "flex",  
+                      flexDirection: "column",
+                      alignItems: item?.Admin?.length ? "flex-start" : "flex-end",
+                      background: item?.Admin?.length ? "#f0f0f0" : "",
+                      marginBottom: 8,
+                      padding: "2%",
+                      borderRadius: 8,
+                      maxWidth: "100%",
+                    }}
+                  >
+                    <div style={{ fontWeight: "bold", textAlign: item?.Admin?.length ? "left" : "right", maxWidth: "80%"}}>
+                      {item?.Admin?.length > 0 ? item?.Admin : item?.Customer}
+                    </div>
+                    <small style={{ color: "#999" }}>
+                      {item?.Date
+                        ? new Intl.DateTimeFormat(undefined, {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                          }).format(new Date(item.Date))
+                        : ""}
+                    </small>
+                  </List.Item>
+                )}
+              />
+            ),
+          },
+          {
+            key: "whatsapp",
+            label: "WhatsApp",
+            children: (
+              <List style = {{paddingLeft:"10%", paddingRight:"10%"}}
+                dataSource={wphistory}
+                renderItem={(item) => (
+                  <List.Item
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: item?.Admin?.length ? "flex-start" : "flex-end",
+                      background: item?.Admin?.length ? "#e6ffe6" : "",
+                      marginBottom: 8,
+                      padding: "2%",
+                      borderRadius: 8,
+                      maxWidth: "100%",
+                    }}
+                  >
+                    <div style={{ fontWeight: "bold" }}>
+                      {item?.Admin?.length > 0 ? item?.Admin : item?.Customer}
+                    </div>
+                    <small style={{ color: "#999" }}>
+                      {item?.Date
+                        ? new Intl.DateTimeFormat(undefined, {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                          }).format(new Date(item.Date))
+                        : ""}
+                    </small>
+                  </List.Item>
+                )}
+              />
+            ),
+          },
         ]}
-      >
-        {selectedCustomer && (
-          <List
-            dataSource={history}
-            renderItem={(item) => (
-              <List.Item
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: item?.Admin?.length ? "flex-start" : "flex-end",
-                  background: item?.Admin?.length ? "#f0f0f0" : "",
-                  marginBottom: 8,
-                  padding: 10,
-                  borderRadius: 8,
-                  maxWidth: "80%",
-                }}
-              >
-                <div style={{ fontWeight: "bold" }}>{item?.Admin?.length > 0 ? item?.Admin : item?.Customer}</div>
-                <small style={{ color: "#999" }}> {item?.Date
-                ? new Intl.DateTimeFormat(undefined, {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: true
-                  }).format(new Date(item.Date))
-                : ""}</small>
-              </List.Item>
-            )}
-          />
-        )}
-      </Modal>
+      />
+    </Modal>
       <Modal
         title={`Send SMS to ${selectedCustomer?.name}`}
         open={isSmsModalOpen}
